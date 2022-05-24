@@ -13,34 +13,28 @@ fn main() -> Result<(), &'static str> {
     }
     for dirent in fs::read_dir(&args[1]).unwrap() {
         let path = dirent.unwrap().path();
-        if file_has_syms(&path) {
+        if file_has_syms(&path).unwrap_or(false) {
             println!("Found symbols in {}", path.display());
         }
     }
     Ok(())
 }
 
-fn file_has_syms(path: &Path) -> bool {
-    if let Ok(bytes) = fs::read(path) {
-        if let Ok(header) = Elf::parse_header(&bytes) {
-            if let Some(mut elf) = Elf::lazy_parse(header).ok() {
-                let ctx = container::Ctx {
-                    container: container::Container::Little,
-                    le: container::Endian::Little,
-                };
-                let sh = SectionHeader::parse(&bytes, header.e_shoff as usize, header.e_shnum as usize, ctx).ok();
-                if let Some(section_headers) = sh {
-                    let strtab_idx = header.e_shstrndx as usize;
-                    if let Ok(shdr_strtab) = get_strtab(&bytes, &section_headers, strtab_idx) {
-                        elf.shdr_strtab = shdr_strtab;
-                        elf.section_headers = section_headers;
-                        return section_headers_indicate_syms(elf);
-                    };
-                }
-            }
-        }
-    }
-    false
+fn file_has_syms(path: &Path) -> Option<bool> {
+    let ctx = container::Ctx {
+        container: container::Container::Little,
+        le: container::Endian::Little,
+    };
+    let bytes = fs::read(path).ok()?;
+    let header = Elf::parse_header(&bytes).ok()?;
+    let mut elf = Elf::lazy_parse(header).ok()?;
+    let section_headers = SectionHeader::parse(&bytes, header.e_shoff as usize, header.e_shnum as usize, ctx).ok()?;
+    get_strtab(&bytes, &section_headers, header.e_shstrndx as usize).ok()
+        .and_then(|shdr_strtab| {
+            elf.shdr_strtab = shdr_strtab;
+            elf.section_headers = section_headers;
+            return Some(section_headers_indicate_syms(elf));
+        })
 }
 
 fn section_headers_indicate_syms(elf: goblin::elf::Elf) -> bool {
@@ -58,11 +52,10 @@ fn section_headers_indicate_syms(elf: goblin::elf::Elf) -> bool {
 }
 
 fn get_strtab<'a>(bytes: &'a[u8], section_headers: &[SectionHeader], section_idx: usize) -> Result<Strtab<'a>, goblin::error::Error> {
-    if section_idx >= section_headers.len() {
-        Ok(Strtab::default())
-    } else {
+    if section_idx < section_headers.len() {
         let shdr = &section_headers[section_idx];
         shdr.check_size(bytes.len())?;
-        Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)
+        return Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0);
     }
+    Ok(Strtab::default())
 }
