@@ -1,0 +1,12 @@
+[package]
+name = "symfinder"
+version = "0.1.0"
+authors = ["Paul Sajna <sajattack@gmail.com>"]
+edition = "2021"
+description = "Ugly rust code which identifies ELFs with debug syms quickly"
+
+[dependencies]
+goblin = "0.5"
+
+[profile.release]
+lto = "fat"
