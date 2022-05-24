@@ -20,19 +20,22 @@ fn main() -> Result<(), &'static str> {
     Ok(())
 }
 
-fn file_has_syms(path: &Path) -> Option<bool> {
+fn file_has_syms(path: &Path) -> bool {
     let ctx = container::Ctx {
         container: container::Container::Little,
         le: container::Endian::Little,
     };
-    let bytes = fs::read(path).ok()?;
-    let header = Elf::parse_header(&bytes).ok()?;
-    let mut elf = Elf::lazy_parse(header).ok()?;
-    let section_headers = SectionHeader::parse(&bytes, header.e_shoff as usize, header.e_shnum as usize, ctx).ok()?;
-    let shdr_strtab = get_strtab(&bytes, &section_headers, header.e_shstrndx as usize).ok()?;
-    elf.shdr_strtab = shdr_strtab;
-    elf.section_headers = section_headers;
-    return Some(section_headers_indicate_syms(elf));
+    let has_syms = || {
+        let bytes = fs::read(path).ok()?;
+        let header = Elf::parse_header(&bytes).ok()?;
+        let mut elf = Elf::lazy_parse(header).ok()?;
+        let section_headers = SectionHeader::parse(&bytes, header.e_shoff as usize, header.e_shnum as usize, ctx).ok()?;
+        let shdr_strtab = get_strtab(&bytes, &section_headers, header.e_shstrndx as usize).ok()?;
+        elf.shdr_strtab = shdr_strtab;
+        elf.section_headers = section_headers;
+        Some(section_headers_indicate_syms(elf))
+    };
+    has_syms().unwrap_or(false)
 }
 
 fn section_headers_indicate_syms(elf: goblin::elf::Elf) -> bool {
