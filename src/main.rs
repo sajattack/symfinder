@@ -13,7 +13,7 @@ fn main() -> Result<(), &'static str> {
     }
     for dirent in fs::read_dir(&args[1]).unwrap() {
         let path = dirent.unwrap().path();
-        if file_has_syms(&path).unwrap_or(false) {
+        if file_has_syms(&path) {
             println!("Found symbols in {}", path.display());
         }
     }
