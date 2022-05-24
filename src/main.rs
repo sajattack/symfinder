@@ -29,12 +29,10 @@ fn file_has_syms(path: &Path) -> Option<bool> {
     let header = Elf::parse_header(&bytes).ok()?;
     let mut elf = Elf::lazy_parse(header).ok()?;
     let section_headers = SectionHeader::parse(&bytes, header.e_shoff as usize, header.e_shnum as usize, ctx).ok()?;
-    get_strtab(&bytes, &section_headers, header.e_shstrndx as usize).ok()
-        .and_then(|shdr_strtab| {
-            elf.shdr_strtab = shdr_strtab;
-            elf.section_headers = section_headers;
-            return Some(section_headers_indicate_syms(elf));
-        })
+    let shdr_strtab = get_strtab(&bytes, &section_headers, header.e_shstrndx as usize).ok()?;
+    elf.shdr_strtab = shdr_strtab;
+    elf.section_headers = section_headers;
+    return Some(section_headers_indicate_syms(elf));
 }
 
 fn section_headers_indicate_syms(elf: goblin::elf::Elf) -> bool {
