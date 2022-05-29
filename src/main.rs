@@ -42,12 +42,8 @@ fn section_headers_indicate_syms(elf: goblin::elf::Elf) -> bool {
     let mut good_symtab = false; 
     let mut good_strtab = false;
     for header in elf.section_headers.into_iter() {
-        let sym_opt = elf.shdr_strtab.get_at(header.sh_name);
-        match sym_opt {
-            Some(".symtab") if header.sh_size > 16 => good_symtab = true,
-            Some(".strtab") if header.sh_size > 16 => good_strtab = true,
-            _ => continue
-        }
+        if header.sh_type == 2 && header.sh_size > 16 { good_symtab = true };
+        if header.sh_type == 3 && header.sh_size > 16 { good_strtab = true };
     }
     good_symtab && good_strtab
 }
